@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: backtest
+      POSTGRES_PASSWORD: backtest
+      POSTGRES_DB: backtest
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backtest"]
+      interval: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  app:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://backtest:backtest@postgres:5432/backtest
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build: .
+    command: celery -A app.worker worker --loglevel=info
+    volumes:
+      - .:/code
+    environment:
+      DATABASE_URL: postgresql://backtest:backtest@postgres:5432/backtest
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+volumes:
+  postgres_data:

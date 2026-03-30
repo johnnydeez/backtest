@@ -22,24 +22,26 @@ Strategies are defined as JSON objects that can be passed to the backtesting eng
   "timescale": "day",
   "direction": "long",
   "fx_pairs": ["EUR_USD"],
-  "entry": {
-    "indicator": {
-      "source": "custom",
-      "name": "breakout",
-      "params": {"high": 20}
-    }
-  },
-  "stop_loss": {
-    "indicator": {
-      "source": "library",
-      "name": "atr",
-      "params": {"period": 90}
+  "rules": {
+    "entry": {
+      "indicator": {
+        "source": "custom",
+        "name": "breakout",
+        "params": {"high": 20}
+      }
     },
-    "multiplier": 1
-  },
-  "take_profit": {
-    "trailing": {
-      "pips": 20
+    "stop_loss": {
+      "indicator": {
+        "source": "library",
+        "name": "atr",
+        "params": {"period": 90}
+      },
+      "multiplier": 1
+    },
+    "take_profit": {
+      "trailing": {
+        "pips": 20
+      }
     }
   }
 }
@@ -47,13 +49,15 @@ Strategies are defined as JSON objects that can be passed to the backtesting eng
 
 ### Key Design Decisions
 
-1. **No redundant "type" fields** - Structure determines type (if `indicator` key exists, it's indicator-based; if `price` key exists, it's price-based, etc.)
+1. **Top-level vs rules separation** - Top-level keys are strategy metadata (`name`, `timescale`, `direction`, `fx_pairs`). All if/then trading logic lives under `rules`. This keeps the structure clean as the number of rule types grows (e.g. time filters, margin limits, position sizing rules can all be added under `rules` without cluttering the top level).
 
-2. **Indicator source distinction**:
+2. **No redundant "type" fields** - Structure determines type (if `indicator` key exists, it's indicator-based; if `price` key exists, it's price-based, etc.)
+
+3. **Indicator source distinction**:
    - `"source": "custom"` - Custom logic we write (e.g., breakout detection)
    - `"source": "library"` - Standard technical indicators from libraries like TA-Lib or pandas-ta (e.g., ATR, RSI, MACD)
 
-3. **Clear parameter ownership** - Nested objects show that parameters belong to the indicator, not the entry/exit rule
+4. **Clear parameter ownership** - Nested objects show that parameters belong to the indicator, not the entry/exit rule
    ```json
    "indicator": {
      "name": "breakout",
@@ -61,7 +65,7 @@ Strategies are defined as JSON objects that can be passed to the backtesting eng
    }
    ```
 
-4. **Consistent pattern across entry/stop/exit** - All follow the same structural approach
+5. **Consistent pattern across all rules** - All rules under `rules` follow the same structural approach
 
 ---
 
@@ -265,3 +269,39 @@ The loop calls these objects — they return decisions based on current bar data
 - Error handling and validation strategies
 - Testing strategy for the backtester itself
 - Event-driven vs. vectorized loop implementation (leaning vectorized for MVP)
+
+---
+
+## Engine Implementation Notes (From Existing Backtester)
+
+These are lessons carried forward from the existing `fx-robots/backtester` scripts.
+
+### Pip Calculations
+P&L must be calculated in pips first, then converted to dollars — not as raw price difference.
+- Non-JPY pairs: pip multiplier = `0.0001`
+- JPY pairs: pip multiplier = `0.01`
+- Formula: `pip_profit = (exit_price - entry_price) / pip_multiplier` (for long)
+- Dollar profit: `pip_profit × pip_dollar_value`
+
+### Position Sizing
+Dollar P&L is meaningless without position size. MVP uses fixed units (e.g. 100,000 = 1 standard lot).
+- `pip_dollar_value = (units / 100,000) × 10` for USD-quoted pairs (e.g. EUR_USD)
+- Position sizing by pip value or compounding are deferred to later versions.
+
+### Balance vs Equity
+- `balance` = realized P&L only (closed trades)
+- `equity` = balance + unrealized P&L (open trades)
+- Drawdown must be tracked against **equity peak**, not balance peak
+
+### Trade State Structure
+Each trade should track: pair, direction, entry price, entry date, exit price, exit date, pip profit, dollar profit, exit reason. Separating `active_trades` from `closed_trades` (with a unified `trade_history` audit list) is cleaner than a single list.
+
+### What We're Leaving Out for MVP
+Partial closures, margin tracking, finance/swap fees, compounding, multiple simultaneous positions.
+
+---
+
+## Known Future Work (Deferred Intentionally)
+
+### Database Migrations (Alembic)
+Currently using `Base.metadata.create_all()` on startup — this creates tables if they don't exist but will not modify existing tables if the schema changes. During early development, schema changes are handled by wiping the Docker postgres volume and letting the app recreate tables from scratch. Once the schema stabilizes, add **Alembic** for proper migration support (incremental, versioned schema changes — like git for the database).
