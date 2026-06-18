@@ -21,6 +21,7 @@ class BacktestParams:
         self.strategy = strategy
         self.pair = strategy["fx_pairs"][0]
         self.direction = strategy["direction"]
+        self.duration = strategy.get("duration")
 
         rules = strategy["rules"]
         self.breakout_period = rules["entry"]["indicator"]["params"]["high"]
@@ -36,6 +37,15 @@ class BacktestParams:
         ])
         if not files:
             raise FileNotFoundError(f"No data files found for {self.pair} in {DATA_DIR}")
+
+        if self.duration is not None:
+            start = self.duration.get("start")
+            end = self.duration.get("end")
+            files = [
+                f for f in files
+                if (start is None or int(f.split("_")[0]) >= start)
+                and (end is None or int(f.split("_")[0]) <= end)
+            ]
 
         frames = [
             pd.read_csv(os.path.join(DATA_DIR, f), parse_dates=["timestamp"])
