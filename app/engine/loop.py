@@ -2,27 +2,31 @@ import math
 from app.engine.params import BacktestParams
 from app.engine.state import TestState
 from app.engine.rules.entry import BreakoutEntryRule
-from app.engine.rules.exit import ATRStopLossRule
+from app.engine.rules.exit import ATRStopLossRule, NDayLowTakeProfitRule, TimeoutRule
 
 
 class BacktestLoop:
     """
     Iterates bar-by-bar over historical data and orchestrates entry/exit decisions.
     Delegates all decision logic to rule objects — contains no strategy logic itself.
-
-    # TODO: when the rule registry is added, rules should be instantiated dynamically
-    # from the strategy JSON rather than hardcoded here.
     """
 
     def __init__(self, params: BacktestParams, state: TestState):
         self.params = params
         self.state = state
         self.entry_rule = BreakoutEntryRule()
-        # Exit rules are evaluated in order — first one that triggers closes the trade.
-        # Add new exit rules here (take profit, time-based, etc.) as they are built.
-        # TODO: when the rule registry is added, exit rules should be built dynamically
-        # from the strategy JSON rather than hardcoded here.
-        self.exit_rules = [ATRStopLossRule()]
+        self.exit_rules = self._build_exit_rules()
+
+    def _build_exit_rules(self):
+        exit_config = self.params.strategy.get("rules", {}).get("exit", {})
+        rules = []
+        if "stop_loss" in exit_config:
+            rules.append(ATRStopLossRule())
+        if "take_profit" in exit_config:
+            rules.append(NDayLowTakeProfitRule(exit_config["take_profit"]))
+        if "timeout" in exit_config:
+            rules.append(TimeoutRule(exit_config["timeout"]))
+        return rules
 
     def run(self):
         for bar in self.params.bars:

@@ -25,8 +25,10 @@ class BacktestParams:
 
         rules = strategy["rules"]
         self.breakout_period = rules["entry"]["indicator"]["params"]["high"]
-        self.atr_period = rules["stop_loss"]["indicator"]["params"]["period"]
-        self.atr_multiplier = rules["stop_loss"].get("multiplier", 1)
+
+        stop_loss_config = rules.get("exit", {}).get("stop_loss", {})
+        self.atr_period = stop_loss_config.get("indicator", {}).get("params", {}).get("period", 14)
+        self.atr_multiplier = stop_loss_config.get("multiplier", 1)
 
         self.bars = self._build_bars()
 
@@ -59,5 +61,10 @@ class BacktestParams:
 
         df["n_day_high"] = custom.n_day_high(df["high"], self.breakout_period)
         df["atr"] = library.atr(df["high"], df["low"], df["close"], self.atr_period)
+
+        take_profit_config = self.strategy.get("rules", {}).get("exit", {}).get("take_profit", {})
+        if take_profit_config:
+            period = take_profit_config["indicator"]["params"]["low"]
+            df["n_day_low"] = custom.n_day_low(df["close"], period)
 
         return df.to_dict(orient="records")
