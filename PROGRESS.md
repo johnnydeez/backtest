@@ -145,6 +145,12 @@ Both fixes were applied and confirmed working. The full end-to-end pipeline is l
 - Built with Plotly, self-contained HTML (loads Plotly from CDN)
 - Path returned in GET response as `account_chart_path`
 
+**Trading math refactored into `engine/calculations.py`:**
+- `pip_multiplier(pair)` — JPY vs non-JPY
+- `pip_dollar_value(pair, units)` — pre-calculated at trade open, stored on trade record
+- `pip_profit(pair, direction, entry_price, exit_price)` — handles long/short correctly
+- `state.py` now imports from calculations; private math methods removed
+
 ---
 
 ## What To Do Next
@@ -155,5 +161,5 @@ Both fixes were applied and confirmed working. The full end-to-end pipeline is l
 - Fix the entry/exit timing look-ahead bias (currently uses bar close; should use next bar's open)
 - Rule registry — dynamic rule instantiation from JSON
 - Position sizing improvements
-- `_pip_dollar_value` — only correct for USD-quoted pairs
+- `pip_dollar_value` in `engine/calculations.py` — only correct for USD-quoted pairs; USD-base pairs need `entry_price`, cross pairs need a secondary USD rate feed
 - Alembic migrations (currently using `create_all()`)

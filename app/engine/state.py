@@ -1,3 +1,6 @@
+from app.engine.calculations import pip_dollar_value, pip_profit
+
+
 class TestState:
     def __init__(self, initial_balance: float = 10000.0, units: int = 100000):
         self.initial_balance = initial_balance
@@ -15,14 +18,6 @@ class TestState:
         self.closed_trades = []
         self.equity_curve = []
 
-    def _pip_multiplier(self, pair: str) -> float:
-        return 0.01 if pair.endswith("JPY") else 0.0001
-
-    def _pip_dollar_value(self, pair: str) -> float:
-        # TODO: currently only correct for USD-quoted pairs (e.g. EUR_USD)
-        # Needs to handle JPY pairs, inverse pairs (USD_JPY), and cross pairs (GBP_JPY)
-        return (self.units / 100000) * 10
-
     def open_position(self, pair: str, date, price: float, stop_loss: float):
         self.in_position = True
         self.entry_price = price
@@ -34,22 +29,22 @@ class TestState:
             "entry_date": str(date),
             "entry_price": price,
             "stop_loss": stop_loss,
+            "pip_dollar_value": pip_dollar_value(pair, self.units),
         }
 
     def close_position(self, pair: str, date, price: float, reason: str):
-        pip_multiplier = self._pip_multiplier(pair)
-        pip_profit = (price - self.entry_price) / pip_multiplier
-        dollar_profit = pip_profit * self._pip_dollar_value(pair)
+        pips = pip_profit(pair, self.active_trade["direction"], self.entry_price, price)
+        dollars = pips * self.active_trade["pip_dollar_value"]
 
-        self.balance += dollar_profit
+        self.balance += dollars
 
         trade_record = {
             **self.active_trade,
             "exit_date": str(date),
             "exit_price": price,
             "exit_reason": reason,
-            "pip_profit": round(pip_profit, 1),
-            "dollar_profit": round(dollar_profit, 2),
+            "pip_profit": round(pips, 1),
+            "dollar_profit": round(dollars, 2),
         }
         self.closed_trades.append(trade_record)
 
@@ -61,9 +56,8 @@ class TestState:
 
     def update_drawdown(self, date, current_price: float, pair: str):
         if self.in_position:
-            pip_multiplier = self._pip_multiplier(pair)
-            pip_profit = (current_price - self.entry_price) / pip_multiplier
-            unrealized = pip_profit * self._pip_dollar_value(pair)
+            pips = pip_profit(pair, self.active_trade["direction"], self.entry_price, current_price)
+            unrealized = pips * self.active_trade["pip_dollar_value"]
         else:
             unrealized = 0.0
 
