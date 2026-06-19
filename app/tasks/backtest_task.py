@@ -7,7 +7,7 @@ from app.db.models import BacktestJob
 from app.engine.params import BacktestParams
 from app.engine.state import TestState
 from app.engine.loop import BacktestLoop
-from app.engine.reporting import build_account_chart
+from app.engine.reporting import build_charts
 
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "results")
@@ -29,11 +29,11 @@ def run_backtest(job_id: str, strategy: dict):
 
         summary = _build_summary(state)
         detail_path = _save_detail(job_id, state)
-        account_chart_path = _save_account_chart(job_id, state)
+        charts_path = _save_charts(job_id, state, params.bars)
 
         job.result_summary = summary
         job.result_file_path = detail_path
-        job.account_chart_path = account_chart_path
+        job.charts_path = charts_path
         job.status = "completed"
         db.commit()
 
@@ -62,9 +62,9 @@ def _build_summary(state: TestState) -> dict:
     }
 
 
-def _save_account_chart(job_id: str, state: TestState) -> str:
-    html = build_account_chart(state)
-    path = os.path.join(RESULTS_DIR, f"{job_id}_account.html")
+def _save_charts(job_id: str, state: TestState, bars: list[dict]) -> str:
+    html = build_charts(state, bars)
+    path = os.path.join(RESULTS_DIR, f"{job_id}_charts.html")
     with open(path, "w") as f:
         f.write(html)
     return path

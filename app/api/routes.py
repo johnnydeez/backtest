@@ -62,7 +62,7 @@ def get_backtest(job_id: str):
             "status": job.status,
             "result_summary": job.result_summary,
             "result_file_path": job.result_file_path,
-            "account_chart_path": job.account_chart_path,
+            "charts_path": job.charts_path,
             "error": job.error,
             "created_at": job.created_at,
         }

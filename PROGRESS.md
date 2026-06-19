@@ -151,12 +151,23 @@ Both fixes were applied and confirmed working. The full end-to-end pipeline is l
 - `pip_profit(pair, direction, entry_price, exit_price)` — handles long/short correctly
 - `state.py` now imports from calculations; private math methods removed
 
+**Combined chart output** generated per job as `{job_id}_charts.html` in `/results/`:
+- Chart 1: equity curve + balance (top), drawdown in dollars (bottom)
+- Chart 2: candlestick OHLC price, entry markers (green triangles), exit markers (red triangles), dashed stop loss line per trade, hover shows price/P&L/reason
+- Single HTML file, both charts stacked, Plotly loaded from CDN
+- Path returned in GET response as `charts_path`
+
 ---
 
 ## What To Do Next
 
-- Trades chart — EUR_USD price (candlestick) with entry/exit markers and per-trade hover info
 - More data files (multiple years / additional currency pairs)
+- Additional rule types (take profit, timeout)
+- Fix the entry/exit timing look-ahead bias (currently uses bar close; should use next bar's open)
+- Rule registry — dynamic rule instantiation from JSON
+- Position sizing improvements
+- `pip_dollar_value` in `engine/calculations.py` — only correct for USD-quoted pairs; USD-base pairs need `entry_price`, cross pairs need a secondary USD rate feed
+- Alembic migrations (currently using `create_all()`)
 - Additional rule types (take profit, timeout)
 - Fix the entry/exit timing look-ahead bias (currently uses bar close; should use next bar's open)
 - Rule registry — dynamic rule instantiation from JSON
