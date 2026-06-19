@@ -6,3 +6,4 @@ sqlalchemy
 pandas
 pandas-ta
 numpy
+plotly

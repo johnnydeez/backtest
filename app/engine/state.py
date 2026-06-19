@@ -13,6 +13,7 @@ class TestState:
 
         self.active_trade = None
         self.closed_trades = []
+        self.equity_curve = []
 
     def _pip_multiplier(self, pair: str) -> float:
         return 0.01 if pair.endswith("JPY") else 0.0001
@@ -58,7 +59,7 @@ class TestState:
         self.stop_loss = None
         self.active_trade = None
 
-    def update_drawdown(self, current_price: float, pair: str):
+    def update_drawdown(self, date, current_price: float, pair: str):
         if self.in_position:
             pip_multiplier = self._pip_multiplier(pair)
             pip_profit = (current_price - self.entry_price) / pip_multiplier
@@ -70,3 +71,10 @@ class TestState:
         self.peak_equity = max(self.peak_equity, equity)
         drawdown = self.peak_equity - equity
         self.max_drawdown = max(self.max_drawdown, drawdown)
+
+        self.equity_curve.append({
+            "date": date,
+            "equity": round(equity, 2),
+            "balance": round(self.balance, 2),
+            "drawdown": round(-drawdown, 2),
+        })

@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from app.db.database import SessionLocal
 from app.db.models import BacktestJob
 from app.tasks.backtest_task import run_backtest
 
 router = APIRouter()
+
+REQUIRED_STRATEGY_FIELDS = ["name", "starting_balance", "trade_size", "direction", "fx_pairs", "rules"]
 
 
 # TODO: a strict REST design would accept the strategy dict directly as the request body
@@ -12,6 +14,14 @@ router = APIRouter()
 # on the strategy schema itself.
 class StrategyRequest(BaseModel):
     strategy: dict
+
+    @field_validator("strategy")
+    @classmethod
+    def validate_strategy(cls, v):
+        missing = [f for f in REQUIRED_STRATEGY_FIELDS if f not in v]
+        if missing:
+            raise ValueError(f"Missing required strategy fields: {', '.join(missing)}")
+        return v
 
 
 @router.post("/backtest", status_code=202)
@@ -52,6 +62,7 @@ def get_backtest(job_id: str):
             "status": job.status,
             "result_summary": job.result_summary,
             "result_file_path": job.result_file_path,
+            "account_chart_path": job.account_chart_path,
             "error": job.error,
             "created_at": job.created_at,
         }

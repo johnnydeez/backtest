@@ -22,6 +22,8 @@ class BacktestParams:
         self.pair = strategy["fx_pairs"][0]
         self.direction = strategy["direction"]
         self.duration = strategy.get("duration")
+        self.starting_balance = strategy["starting_balance"]
+        self.trade_size = strategy["trade_size"]
 
         rules = strategy["rules"]
         self.breakout_period = rules["entry"]["indicator"]["params"]["high"]

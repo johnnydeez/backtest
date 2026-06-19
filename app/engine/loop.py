@@ -30,7 +30,7 @@ class BacktestLoop:
 
     def run(self):
         for bar in self.params.bars:
-            self.state.update_drawdown(bar["close"], self.params.pair)
+            self.state.update_drawdown(bar["timestamp"], bar["close"], self.params.pair)
 
             if self.state.in_position:
                 for rule in self.exit_rules:

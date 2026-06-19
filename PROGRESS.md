@@ -126,33 +126,34 @@ All code is written. We ran `docker compose up` for the first time and hit two i
 - **Problem:** `autodiscover_tasks(["app.tasks"])` looks for `app/tasks/tasks.py` but our file is `backtest_task.py`
 - **Fix:** Changed to `celery_app.conf.include = ["app.tasks.backtest_task"]` in `worker.py`
 
-**We have not yet restarted the containers with these fixes applied.** That is the immediate next step.
+Both fixes were applied and confirmed working. The full end-to-end pipeline is live as of 2026-06-19.
 
 ---
 
-## What To Do Next (In Order)
+## Current Status
 
-1. **`docker compose down` then `docker compose up`** — verify the fixes work:
-   - App should start cleanly (no postgres connection error)
-   - Worker should show `app.tasks.backtest_task.run_backtest` in `[tasks]`
+**Working end-to-end:**
+- `POST /backtest` → Celery task queued
+- Worker picks up job, runs engine, writes results to PostgreSQL + disk
+- `GET /backtest/{job_id}` returns summary metrics, result file path, and chart paths
 
-2. **Submit a test job** — using curl or the FastAPI auto-docs at `http://localhost:8000/docs`:
-   ```bash
-   curl -X POST http://localhost:8000/backtest \
-     -H "Content-Type: application/json" \
-     -d '{"strategy": {"name": "test", "timescale": "day", "direction": "long", "fx_pairs": ["EUR_USD"], "rules": {"entry": {"indicator": {"source": "custom", "name": "breakout", "params": {"high": 20}}}, "stop_loss": {"indicator": {"source": "library", "name": "atr", "params": {"period": 90}}, "multiplier": 1}}}}'
-   ```
+**Strategy payload now requires** `starting_balance` and `trade_size` (validated at the route layer with a clear error message if missing).
 
-3. **Poll for results:**
-   ```bash
-   curl http://localhost:8000/backtest/{job_id}
-   ```
+**Account metrics chart** generated per job as `{job_id}_account.html` in `/results/`:
+- Top panel: equity curve + balance over time
+- Bottom panel: drawdown in dollars
+- Built with Plotly, self-contained HTML (loads Plotly from CDN)
+- Path returned in GET response as `account_chart_path`
 
-4. **If anything fails** — check `job.error` in the response for the full traceback, and check worker logs
+---
 
-5. **Once end-to-end works**, decide what to improve first:
-   - More data files (multiple years)
-   - Additional rule types (take profit)
-   - Fix the entry/exit timing look-ahead bias
-   - Position sizing improvements
-   - Additional currency pairs
+## What To Do Next
+
+- Trades chart — EUR_USD price (candlestick) with entry/exit markers and per-trade hover info
+- More data files (multiple years / additional currency pairs)
+- Additional rule types (take profit, timeout)
+- Fix the entry/exit timing look-ahead bias (currently uses bar close; should use next bar's open)
+- Rule registry — dynamic rule instantiation from JSON
+- Position sizing improvements
+- `_pip_dollar_value` — only correct for USD-quoted pairs
+- Alembic migrations (currently using `create_all()`)
